@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Запись в Barber House</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 20px 16px 40px;
+            font-family: system-ui, "Segoe UI", Arial, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
+        h1 { font-size: 1.4rem; margin: 0 0 4px; }
+        h2 { font-size: 1.05rem; margin: 24px 0 10px; }
+        .hint { color: var(--tg-theme-hint-color, #888); margin: 0; }
+        .grid { display: flex; flex-wrap: wrap; gap: 8px; }
+        .service {
+            flex: 1 1 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 14px;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            background: var(--tg-theme-secondary-bg-color, #f1f1f1);
+            color: inherit;
+            font-size: 1rem;
+            text-align: left;
+        }
+        .chip {
+            flex: 1 1 calc(25% - 8px);
+            min-width: 70px;
+            padding: 12px 6px;
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background: var(--tg-theme-secondary-bg-color, #f1f1f1);
+            color: inherit;
+            font-size: 0.9rem;
+        }
+        .date { flex: 1 1 calc(33% - 8px); }
+        .selected {
+            border-color: var(--tg-theme-button-color, #2481cc);
+            font-weight: 600;
+        }
+        input {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 10px;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            background: var(--tg-theme-secondary-bg-color, #f1f1f1);
+            color: inherit;
+            font-size: 1rem;
+        }
+        input:focus { outline: none; border-color: var(--tg-theme-button-color, #2481cc); }
+        .submit {
+            width: 100%;
+            margin-top: 20px;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            background: var(--tg-theme-button-color, #2481cc);
+            color: var(--tg-theme-button-text-color, #fff);
+        }
+        .submit:active { opacity: 0.8; }
+    </style>
+</head>
+<body>
+
+    <h1>💈 Barber House</h1>
+    <p class="hint">Запись онлайн</p>
+
+    <h2>1. Услуга</h2>
+    <div class="grid" id="services"></div>
+
+    <h2>2. День</h2>
+    <div class="grid" id="dates"></div>
+
+    <h2>3. Время</h2>
+    <div class="grid" id="times"></div>
+
+    <h2>4. Ваши данные</h2>
+    <input id="name" type="text" placeholder="Имя" autocomplete="name">
+    <input id="phone" type="tel" placeholder="Телефон" autocomplete="tel">
+
+    <button class="submit" id="submit">Записаться</button>
+
+    <script>
+        const tg = window.Telegram && window.Telegram.WebApp;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+        }
+
+        // Данные для заполнения страницы (потом их можно менять под любого клиента)
+        const SERVICES = [
+            { title: "Мужская стрижка", price: 1500 },
+            { title: "Стрижка + борода", price: 2200 },
+            { title: "Оформление бороды", price: 900 },
+            { title: "Детская стрижка", price: 1000 },
+        ];
+        const TIMES = ["10:00", "11:00", "12:00", "13:00", "14:00", "15:00",
+                       "16:00", "17:00", "18:00", "19:00", "20:00"];
+        const DAYS_AHEAD = 7;
+
+        const choice = { service: null, date: null, time: null };
+
+        // Выбор одной кнопки в группе
+        function select(container, button) {
+            container.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
+            button.classList.add("selected");
+        }
+
+        // Услуги
+        const servicesBox = document.getElementById("services");
+        SERVICES.forEach(item => {
+            const btn = document.createElement("button");
+            btn.className = "service";
+            const title = document.createElement("span");
+            title.textContent = item.title;
+            const price = document.createElement("span");
+            price.textContent = item.price + " ₽";
+            btn.append(title, price);
+            btn.addEventListener("click", () => {
+                choice.service = item;
+                select(servicesBox, btn);
+            });
+            servicesBox.appendChild(btn);
+        });
+
+        // Даты: ближайшие 7 дней
+        const datesBox = document.getElementById("dates");
+        for (let i = 0; i < DAYS_AHEAD; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() + i);
+            const iso = d.getFullYear() + "-" +
+                String(d.getMonth() + 1).padStart(2, "0") + "-" +
+                String(d.getDate()).padStart(2, "0");
+            const btn = document.createElement("button");
+            btn.className = "chip date";
+            btn.textContent = d.toLocaleDateString("ru-RU", {
+                weekday: "short", day: "numeric", month: "short"
+            });
+            btn.addEventListener("click", () => {
+                choice.date = iso;
+                select(datesBox, btn);
+            });
+            datesBox.appendChild(btn);
+        }
+
+        // Время
+        const timesBox = document.getElementById("times");
+        TIMES.forEach(t => {
+            const btn = document.createElement("button");
+            btn.className = "chip";
+            btn.textContent = t;
+            btn.addEventListener("click", () => {
+                choice.time = t;
+                select(timesBox, btn);
+            });
+            timesBox.appendChild(btn);
+        });
+
+        function warn(text) {
+            if (tg && tg.showAlert) {
+                tg.showAlert(text);
+            } else {
+                alert(text);
+            }
+        }
+
+        // Отправка
+        document.getElementById("submit").addEventListener("click", () => {
+            const name = document.getElementById("name").value.trim();
+            const phone = document.getElementById("phone").value.trim();
+            const digits = phone.replace(/\D/g, "");
+
+            if (!choice.service) return warn("Выберите услугу");
+            if (!choice.date) return warn("Выберите день");
+            if (!choice.time) return warn("Выберите время");
+            if (!name) return warn("Введите имя");
+            if (digits.length < 10) return warn("Введите телефон полностью");
+
+            const payload = {
+                service: choice.service.title,
+                price: choice.service.price,
+                date: choice.date,
+                time: choice.time,
+                name: name,
+                phone: phone,
+            };
+
+            if (tg) {
+                tg.sendData(JSON.stringify(payload));
+            } else {
+                warn("Откройте приложение внутри Telegram");
+            }
+        });
+    </script>
+
+</body>
+</html>
